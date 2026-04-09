@@ -1,0 +1,39 @@
+@use "_vars" as *;
+
+* {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    font-size: 100%;
+    vertical-align: baseline;
+    box-sizing: border-box;
+    text-decoration: none;
+    scroll-behavior: smooth;
+    font-family: $fontFamily;
+    font-weight: 400;
+    // @include mixins.fontMixin(regular);
+    scrollbar-color: $mainCol transparent;
+    outline: none;
+    box-shadow: none;
+}
+html{
+    overflow-x: hidden;
+}
+input,
+textarea {
+    outline: 0;
+    &:focus-visible {
+        box-shadow: none !important;
+    }
+}
+ul {
+    list-style: disc;
+}
+ul,
+ol {
+    padding-left: $siteSpacing;
+}
+img {
+    max-width: 100%;
+    vertical-align: middle;
+}

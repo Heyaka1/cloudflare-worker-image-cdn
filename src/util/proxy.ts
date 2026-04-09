@@ -2,6 +2,7 @@
  * Util to proxy requests to the origin server
  */
 import { getBestFormat, getContentType, convertImage } from "./convert";
+import { resizeImage } from "./resize";
 
 function passthrough(response: Response): Response {
 	return new Response(response.body, {
@@ -38,7 +39,15 @@ export async function proxyRequest(
 		return passthrough(originResponse);
 	}
 
-	const imageData = await originResponse.arrayBuffer();
+	const width = url.searchParams.get("w") ? Number(url.searchParams.get("w")) : undefined;
+	const height = url.searchParams.get("h") ? Number(url.searchParams.get("h")) : undefined;
+
+	let imageData = await originResponse.arrayBuffer();
+
+	if (width || height) {
+		imageData = (await resizeImage(imageData, width, height)).buffer as ArrayBuffer;
+	}
+
 	const converted = await convertImage(imageData, format);
 
 	return new Response(converted, {

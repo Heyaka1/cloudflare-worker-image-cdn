@@ -45,9 +45,13 @@ export async function proxyRequest(
 	}
 
 	// Cache miss — fetch from origin
+	const originHost = new URL(originUrl).host;
 	const originResponse = await fetch(originUrl, {
 		method: request.method,
-		headers: request.headers,
+		headers: {
+			...Object.fromEntries(request.headers),
+			Host: originHost,
+		},
 	});
 
 	if (!originResponse.ok) {

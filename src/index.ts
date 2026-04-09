@@ -11,21 +11,10 @@
  * Learn more at https://developers.cloudflare.com/workers/
  */
 
+import { proxyRequest } from "./util/proxy";
+
 export default {
 	async fetch(request, env, ctx): Promise<Response> {
-		const PROXY_ORIGINAL_URL = env.PROXY_ORIGINAL_URL
-
-		const url = new URL(request.url);
-		const originUrl = `${PROXY_ORIGINAL_URL}${url.pathname}${url.search}`;
-
-		const originResponse = await fetch(originUrl, {
-			method: request.method,
-			headers: request.headers,
-		});
-
-		return new Response(originResponse.body, {
-			status: originResponse.status,
-			headers: originResponse.headers,
-		});
+		return proxyRequest(request, env.PROXY_ORIGINAL_URL);
 	},
 } satisfies ExportedHandler<Env>;

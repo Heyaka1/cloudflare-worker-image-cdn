@@ -1,0 +1,28 @@
+{
+	"name": "cloudflare-worker-image-cdn",
+	"version": "0.0.1",
+	"description": "A simple CDN for cloudflare workers",
+	"homepage": "https://github.com/FrancescoCiannavei/cloudflare-worker-image-cdn#readme",
+	"bugs": {
+		"url": "https://github.com/FrancescoCiannavei/cloudflare-worker-image-cdn/issues"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/FrancescoCiannavei/cloudflare-worker-image-cdn.git"
+	},
+	"license": "MIT",
+	"author": "Francesco Ciannavei",
+	"type": "commonjs",
+	"main": "src/index.ts",
+	"scripts": {
+		"dev": "wrangler dev",
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"dependencies": {
+		"@cloudflare/vitest-pool-workers": "^0.14.2",
+		"typescript": "^6.0.2",
+		"vitest": "^4.1.4",
+		"wasm-image-optimization": "^2.0.7",
+		"wrangler": "^4.81.0"
+	}
+}

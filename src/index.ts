@@ -11,13 +11,12 @@
  * Learn more at https://developers.cloudflare.com/workers/
  */
 
-// TODO: Move this to a config file or smt
-let originSource = "http://localhost:3000/images"
-
 export default {
 	async fetch(request, env, ctx): Promise<Response> {
+		const PROXY_ORIGINAL_URL = env.PROXY_ORIGINAL_URL
+
 		const url = new URL(request.url);
-		const originUrl = `${originSource}${url.pathname}${url.search}`;
+		const originUrl = `${PROXY_ORIGINAL_URL}${url.pathname}${url.search}`;
 
 		const originResponse = await fetch(originUrl, {
 			method: request.method,

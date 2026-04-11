@@ -1,14 +1,11 @@
 /**
  * Util to proxy requests to the origin server
  */
-import { optimizeImage } from "wasm-image-optimization/workerd";
-import { getBestFormat, getContentType } from "./convert";
+import { optimizeImage, type OptimizeParams } from "wasm-image-optimization/workerd";
+import { getBestFormat, getContentType, type ImageFormat } from "./convert";
 import { computeDimensions } from "./resize";
 import { getImageDimensions } from "./dimensions";
 import { getCachedImage, putCachedImage } from "./cache";
-
-const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
-const MAX_PIXELS = 16_000_000; // 16 megapixels
 
 function passthrough(response: Response): Response {
 	return new Response(response.body, {
@@ -73,70 +70,59 @@ export async function proxyRequest(
 		return passthrough(originResponse);
 	}
 
-	// Pre-flight size check (before buffering)
-	const contentLength = Number(originResponse.headers.get("content-length") || "0");
-	if (contentLength > MAX_IMAGE_SIZE) {
-		return passthrough(originResponse);
-	}
-
-	// Skip WASM if origin already serves the target format and no resize needed
-	const originFormat = contentType.split("/")[1]; // "jpeg", "png", "webp", "avif"
-	if (originFormat === format && !width && !height) {
-		return passthrough(originResponse);
-	}
-
 	// Get image data as ArrayBuffer
 	const imageData = await originResponse.arrayBuffer();
 
-	// Post-buffer size check (Content-Length may be missing/wrong)
-	if (imageData.byteLength > MAX_IMAGE_SIZE) {
-		return new Response("Image too large to process", { status: 413 });
-	}
-
-	// Megapixel guard: serve unoptimized if decoding would exceed memory
-	const dims = getImageDimensions(imageData);
-	if (dims && dims.width * dims.height > MAX_PIXELS) {
-		return new Response(imageData, {
-			status: 200,
-			headers: {
-				"Content-Type": contentType,
-				"Cache-Control": "public, max-age=86400",
-			},
-		});
-	}
-
-	// Build single optimizeImage call with all options (resize + format convert)
-	const options: Record<string, unknown> = {
+	// Build optimizeImage options
+	const options: OptimizeParams = {
 		image: imageData,
 		format,
 		quality,
+		speed: format === "avif" ? 10 : 6, // max speed for AVIF to reduce encoder memory
 	};
 
 	// Add resize dimensions if requested (only downscale, never upscale)
-	if ((width || height) && dims) {
-		const { width: targetW, height: targetH } = computeDimensions(
-			dims.width,
-			dims.height,
-			width,
-			height,
-		);
-		if (targetW < dims.width || targetH < dims.height) {
-			options.width = targetW;
-			options.height = targetH;
+	if (width || height) {
+		const dims = getImageDimensions(imageData);
+		if (dims) {
+			const { width: targetW, height: targetH } = computeDimensions(
+				dims.width,
+				dims.height,
+				width,
+				height,
+			);
+			if (targetW < dims.width || targetH < dims.height) {
+				options.width = targetW;
+				options.height = targetH;
+			}
 		}
 	}
 
-	// Single WASM call: resize + format conversion in one pass
-	const result = await optimizeImage(options as Parameters<typeof optimizeImage>[0]);
-	const converted = result.data;
+	// Try requested format, fall back to WebP if AVIF blows memory
+	let converted: Uint8Array;
+	let outputFormat: ImageFormat = format;
+	try {
+		converted = (await optimizeImage(options)).data;
+	} catch {
+		if (format === "avif") {
+			outputFormat = "webp";
+			options.format = "webp";
+			options.speed = 6;
+			converted = (await optimizeImage(options)).data;
+		} else {
+			return passthrough(new Response(imageData, {
+				headers: { "Content-Type": contentType },
+			}));
+		}
+	}
 
 	// Store in R2 cache (non-blocking)
-	ctx.waitUntil(putCachedImage(bucket, url, format, converted));
+	ctx.waitUntil(putCachedImage(bucket, url, outputFormat, converted));
 
 	return new Response(converted, {
 		status: 200,
 		headers: {
-			"Content-Type": getContentType(format),
+			"Content-Type": getContentType(outputFormat),
 			"Cache-Control": "public, max-age=86400",
 			"X-Cache": "MISS",
 		},

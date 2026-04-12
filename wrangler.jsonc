@@ -16,14 +16,17 @@
 	"r2_buckets": [
 		{
 			"binding": "WORKER_CDN_IMAGES",
-			"bucket_name": "worker-cdn-images"
+			"bucket_name": "worker-cdn-images",
+			"preview_bucket_name": "worker-cdn-images-local"
 		}
 	],
 	"upload_source_maps": true,
 	"compatibility_flags": [
 		"nodejs_compat"
 	],
-	"placement": { "mode": "smart" }
+	"placement": {
+		"mode": "smart"
+	}
 	/**
 	 * Bindings
 	 * Bindings allow your Worker to interact with resources on the Cloudflare Developer Platform, including

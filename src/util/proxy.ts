@@ -73,72 +73,86 @@ export async function proxyRequest(
 	// Get image data as ArrayBuffer
 	const imageData = await originResponse.arrayBuffer();
 
-	// Probe source dimensions and resolve the target (post-resize) dimensions.
-	// The encoder works on the resized raster, so AVIF feasibility is determined
-	// by the target size — not the source.
-	const dims = getImageDimensions(imageData);
-	let targetW: number | undefined;
-	let targetH: number | undefined;
-	if (dims) {
-		if (width || height) {
-			const resized = computeDimensions(dims.width, dims.height, width, height);
-			targetW = resized.width;
-			targetH = resized.height;
-		} else {
-			targetW = dims.width;
-			targetH = dims.height;
-		}
-		format = getBestFormat(accept, { width: targetW, height: targetH });
-	}
-	if (!format) {
-		return passthrough(new Response(imageData, {
-			headers: { "Content-Type": contentType },
-		}));
-	}
-
-	// Build optimizeImage options
-	const options: OptimizeParams = {
-		image: imageData,
-		format,
-		quality,
-		speed: 10,
-	};
-
-	// Apply resize if it would actually downscale (never upscale)
-	if (dims && targetW !== undefined && targetH !== undefined) {
-		if (targetW < dims.width || targetH < dims.height) {
-			options.width = targetW;
-			options.height = targetH;
-		}
-	}
-
-	// Try requested format, fall back to WebP if AVIF blows memory
-	let converted: Uint8Array;
-	let outputFormat: ImageFormat = format;
+	// Any failure in the processing pipeline below falls back to serving the
+	// raw bytes we already fetched from the origin, so a broken transform never
+	// turns into a broken response for the user.
 	try {
-		converted = (await optimizeImage(options)).data;
-	} catch {
-		if (format === "avif") {
-			outputFormat = "webp";
-			options.format = "webp";
-			options.speed = 10;
-			converted = (await optimizeImage(options)).data;
-		} else {
+		// Probe source dimensions and resolve the target (post-resize) dimensions.
+		// The encoder works on the resized raster, so AVIF feasibility is determined
+		// by the target size — not the source.
+		const dims = getImageDimensions(imageData);
+		let targetW: number | undefined;
+		let targetH: number | undefined;
+		if (dims) {
+			if (width || height) {
+				const resized = computeDimensions(dims.width, dims.height, width, height);
+				targetW = resized.width;
+				targetH = resized.height;
+			} else {
+				targetW = dims.width;
+				targetH = dims.height;
+			}
+			format = getBestFormat(accept, { width: targetW, height: targetH });
+		}
+		if (!format) {
 			return passthrough(new Response(imageData, {
 				headers: { "Content-Type": contentType },
 			}));
 		}
+
+		// Build optimizeImage options
+		const options: OptimizeParams = {
+			image: imageData,
+			format,
+			quality,
+			speed: 10,
+		};
+
+		// Apply resize if it would actually downscale (never upscale)
+		if (dims && targetW !== undefined && targetH !== undefined) {
+			if (targetW < dims.width || targetH < dims.height) {
+				options.width = targetW;
+				options.height = targetH;
+			}
+		}
+
+		// Try requested format, fall back to WebP if AVIF blows memory
+		let converted: Uint8Array;
+		let outputFormat: ImageFormat = format;
+		try {
+			converted = (await optimizeImage(options)).data;
+		} catch {
+			if (format === "avif") {
+				outputFormat = "webp";
+				options.format = "webp";
+				options.speed = 10;
+				converted = (await optimizeImage(options)).data;
+			} else {
+				return passthrough(new Response(imageData, {
+					headers: { "Content-Type": contentType },
+				}));
+			}
+		}
+
+		// Store in R2 cache (non-blocking)
+		ctx.waitUntil(putCachedImage(bucket, url, outputFormat, converted));
+
+		return new Response(converted, {
+			status: 200,
+			headers: {
+				"Content-Type": getContentType(outputFormat),
+				"Cache-Control": "public, max-age=86400",
+				"X-Cache": "MISS",
+			},
+		});
+	} catch {
+		return new Response(imageData, {
+			status: 200,
+			headers: {
+				"Content-Type": contentType,
+				"Cache-Control": "public, max-age=86400",
+				"X-Cache": "BYPASS",
+			},
+		});
 	}
-
-	// Store in R2 cache (non-blocking)
-	ctx.waitUntil(putCachedImage(bucket, url, outputFormat, converted));
-
-	return new Response(converted, {
-		status: 200,
-		headers: {
-			"Content-Type": getContentType(outputFormat),
-			"Cache-Control": "public, max-age=86400",
-			"X-Cache": "MISS",
-		},
-	});
 }

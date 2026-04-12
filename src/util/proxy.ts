@@ -24,7 +24,7 @@ export async function proxyRequest(
 	const originUrl = `${originBaseUrl}${url.pathname}${url.search}`;
 
 	const accept = request.headers.get("accept") || "";
-	const format = getBestFormat(accept);
+	let format = getBestFormat(accept);
 
 	const width = url.searchParams.get("w") ? Number(url.searchParams.get("w")) : undefined;
 	const height = url.searchParams.get("h") ? Number(url.searchParams.get("h")) : undefined;
@@ -73,28 +73,37 @@ export async function proxyRequest(
 	// Get image data as ArrayBuffer
 	const imageData = await originResponse.arrayBuffer();
 
+	// Probe source dimensions and re-evaluate format — if the source is too
+	// large for AVIF encoding on a 128MB Worker, downgrade to WebP.
+	const dims = getImageDimensions(imageData);
+	if (dims) {
+		format = getBestFormat(accept, dims);
+	}
+	if (!format) {
+		return passthrough(new Response(imageData, {
+			headers: { "Content-Type": contentType },
+		}));
+	}
+
 	// Build optimizeImage options
 	const options: OptimizeParams = {
 		image: imageData,
 		format,
 		quality,
-		speed: format === "avif" ? 10 : 6, // max speed for AVIF to reduce encoder memory
+		speed: 10,
 	};
 
 	// Add resize dimensions if requested (only downscale, never upscale)
-	if (width || height) {
-		const dims = getImageDimensions(imageData);
-		if (dims) {
-			const { width: targetW, height: targetH } = computeDimensions(
-				dims.width,
-				dims.height,
-				width,
-				height,
-			);
-			if (targetW < dims.width || targetH < dims.height) {
-				options.width = targetW;
-				options.height = targetH;
-			}
+	if ((width || height) && dims) {
+		const { width: targetW, height: targetH } = computeDimensions(
+			dims.width,
+			dims.height,
+			width,
+			height,
+		);
+		if (targetW < dims.width || targetH < dims.height) {
+			options.width = targetW;
+			options.height = targetH;
 		}
 	}
 
@@ -107,7 +116,7 @@ export async function proxyRequest(
 		if (format === "avif") {
 			outputFormat = "webp";
 			options.format = "webp";
-			options.speed = 6;
+			options.speed = 10;
 			converted = (await optimizeImage(options)).data;
 		} else {
 			return passthrough(new Response(imageData, {

@@ -15,6 +15,6 @@ import { proxyRequest } from "./util/proxy";
 
 export default {
 	async fetch(request, env, ctx): Promise<Response> {
-		return proxyRequest(request, env.PROXY_ORIGINAL_URL, env.WORKER_CDN_IMAGES, ctx);
+		return proxyRequest(request, env.PROXY_ORIGINAL_URL, env.WORKER_CDN_IMAGES, ctx, env.STEPS_QUALITY, env.STEPS_SIZE);
 	},
 } satisfies ExportedHandler<Env>;

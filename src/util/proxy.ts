@@ -6,6 +6,7 @@ import { getBestFormat, getContentType, type ImageFormat } from "./convert";
 import { computeDimensions } from "./resize";
 import { getImageDimensions } from "./dimensions";
 import { getCachedImage, putCachedImage } from "./cache";
+import { parseSteps, snapToStep } from "./steps";
 
 function passthrough(response: Response): Response {
 	return new Response(response.body, {
@@ -19,6 +20,8 @@ export async function proxyRequest(
 	originBaseUrl: string,
 	bucket: R2Bucket,
 	ctx: ExecutionContext,
+	stepsQualityRaw?: string,
+	stepsSizeRaw?: string,
 ): Promise<Response> {
 	const url = new URL(request.url);
 	const originUrl = `${originBaseUrl}${url.pathname}${url.search}`;
@@ -26,11 +29,23 @@ export async function proxyRequest(
 	const accept = request.headers.get("accept") || "";
 	let format = getBestFormat(accept);
 
-	const width = url.searchParams.get("w") ? Number(url.searchParams.get("w")) : undefined;
-	const height = url.searchParams.get("h") ? Number(url.searchParams.get("h")) : undefined;
-	const quality = url.searchParams.get("quality")
+	const qualitySteps = parseSteps(stepsQualityRaw);
+	const sizeSteps = parseSteps(stepsSizeRaw);
+
+	let width = url.searchParams.get("w") ? Number(url.searchParams.get("w")) : undefined;
+	let height = url.searchParams.get("h") ? Number(url.searchParams.get("h")) : undefined;
+	let quality = url.searchParams.get("quality")
 		? Math.min(100, Math.max(1, Number(url.searchParams.get("quality"))))
 		: 100;
+
+	quality = snapToStep(quality, qualitySteps);
+	if (width !== undefined) width = snapToStep(width, sizeSteps);
+	if (height !== undefined) height = snapToStep(height, sizeSteps);
+
+	// Update URL params to snapped values so cache keys are consistent
+	if (url.searchParams.has("quality")) url.searchParams.set("quality", String(quality));
+	if (url.searchParams.has("w")) url.searchParams.set("w", String(width));
+	if (url.searchParams.has("h")) url.searchParams.set("h", String(height));
 
 	// Check R2 cache before fetching from origin
 	if (format) {

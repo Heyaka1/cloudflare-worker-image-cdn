@@ -44,6 +44,9 @@ import Layout from "../layouts/Layout.astro";
 		<li>When no <code>quality</code> param is provided, the default is <strong>100</strong> (no quality reduction)</li>
 	</ul>
 
+	<h2>Step snapping</h2>
+	<p>Quality values are snapped to the nearest <a href="/steps">quality step</a> before processing. For example, <code>?quality=75</code> snaps to <code>quality=80</code> with the default step configuration.</p>
+
 	<h2>Combining with other params</h2>
 	<pre><code>/photo.jpg?w=800&quality=80
 /photo.jpg?w=400&h=300&quality=60</code></pre>

@@ -4,7 +4,7 @@ import Layout from "../layouts/Layout.astro";
 
 <Layout title="Conversion - Worker Image CDN">
 	<h1>Conversion</h1>
-	<p>Images are automatically converted to modern formats based on the browser's <code>Accept</code> header. No query parameter is needed — the worker picks the best format the client supports.</p>
+	<p>Images are automatically converted to modern formats based on the browser's <code>Accept</code> header. No query parameter is needed - the worker picks the best format the client supports.</p>
 
 	<h2>Comparison</h2>
 	<img-comparison-slider>
@@ -18,11 +18,28 @@ import Layout from "../layouts/Layout.astro";
 
 	<h2>Format priority</h2>
 	<p>The worker inspects the <code>Accept</code> header and selects the best supported format:</p>
-	<ol class="content-list">
-		<li><strong>AVIF</strong> — preferred when the client sends <code>image/avif</code> and the image fits within the pixel limit</li>
-		<li><strong>WebP</strong> — used when AVIF is unsupported or exceeds the pixel limit</li>
-		<li><strong>Original</strong> — served as-is when neither format is accepted</li>
-	</ol>
+	<table>
+		<thead>
+			<tr>
+				<th>Format</th>
+				<th>Priority</th>
+			</tr>
+		</thead>
+		<tbody>
+			<tr>
+				<td><strong>AVIF</strong></td>
+				<td>Preferred when the client sends <code>image/avif</code> and the image fits within the pixel limit</td>
+			</tr>
+			<tr>
+				<td><strong>WebP</strong></td>
+				<td>Used when AVIF is unsupported or exceeds the pixel limit</td>
+			</tr>
+			<tr>
+				<td><strong>Original</strong></td>
+				<td>Served as-is when neither format is accepted</td>
+			</tr>
+		</tbody>
+	</table>
 
 	<h2>AVIF pixel limit</h2>
 	<p>AVIF encoding is memory-intensive. Images larger than <strong>5 million pixels</strong> (e.g. 2500 &times; 2000) automatically fall back to WebP to stay within the 128 MB Worker memory limit.</p>

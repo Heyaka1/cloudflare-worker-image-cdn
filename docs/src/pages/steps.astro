@@ -44,12 +44,29 @@ import Layout from "../layouts/Layout.astro";
 }`}</code></pre>
 
 	<h2>Edge cases</h2>
-	<ul class="content-list">
-		<li><strong>Value exceeds all steps</strong> — the largest step is used (e.g. <code>w=5000</code> snaps to <code>3840</code>)</li>
-		<li><strong>No steps configured</strong> — values pass through unchanged, no snapping is applied</li>
-		<li><strong>No parameter provided</strong> — steps have no effect; the image is served at its original dimensions/quality</li>
-	</ul>
+	<table>
+		<thead>
+			<tr>
+				<th>Scenario</th>
+				<th>Behavior</th>
+			</tr>
+		</thead>
+		<tbody>
+			<tr>
+				<td><strong>Value exceeds all steps</strong></td>
+				<td>The largest step is used (e.g. <code>w=5000</code> snaps to <code>3840</code>)</td>
+			</tr>
+			<tr>
+				<td><strong>No steps configured</strong></td>
+				<td>Values pass through unchanged, no snapping is applied</td>
+			</tr>
+			<tr>
+				<td><strong>No parameter provided</strong></td>
+				<td>Steps have no effect; the image is served at its original dimensions/quality</td>
+			</tr>
+		</tbody>
+	</table>
 
 	<h2>Why use steps?</h2>
-	<p>Without steps, requests for <code>w=799</code>, <code>w=800</code>, and <code>w=801</code> would each produce and cache a separate image. With the default size steps, all three snap to <code>w=1080</code> and share a single cached variant — reducing storage usage and improving cache hit rates.</p>
+	<p>Without steps, requests for <code>w=799</code>, <code>w=800</code>, and <code>w=801</code> would each produce and cache a separate image. With the default size steps, all three snap to <code>w=1080</code> and share a single cached variant - reducing storage usage and improving cache hit rates.</p>
 </Layout>
